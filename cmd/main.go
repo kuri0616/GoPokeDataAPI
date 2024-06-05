@@ -46,7 +46,7 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/test/{id:[0-9]+}", GetPokeDataHandler).Methods(http.MethodGet)
+	r.HandleFunc("/pokemon/{id:[0-9]+}", GetPokeDataHandler).Methods(http.MethodGet)
 	http.Handle("/", r)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
