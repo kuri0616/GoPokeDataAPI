@@ -8,15 +8,14 @@ import (
 )
 
 func main() {
-	type Stat struct {
-		Name string `json:"name"`
-	}
-	type Stats struct {
-		BaseStat int  `json:"base_stat"`
-		Stat     Stat `json:"stat"`
-	}
+	//ポケモンのデータを格納する構造体
 	type PokeData struct {
-		Stats []Stats `json:"stats"`
+		Stats []struct {
+			BaseStat int `json:"base_stat"`
+			Stat     struct {
+				Name string `json:"name"`
+			} `json:"stat"`
+		} `json:"stats"`
 	}
 
 	//ポケモンのデータを取得するhandler
