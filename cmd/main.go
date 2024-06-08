@@ -24,6 +24,7 @@ func main() {
 		} `json:"stats"`
 	}
 
+
 	//ポケモンの名前を格納する構造体
 	type FindName struct {
 		Names []struct {
@@ -34,6 +35,7 @@ func main() {
 		}
 	}
 
+	//ステータスを計算する関数
 	CalculateHP := func(baseStat int, individualVal int, effortVal int, level int) int {
 		calStatus := (baseStat*2+individualVal+effortVal/4)*level/100 + level + 10
 		return calStatus
@@ -42,6 +44,7 @@ func main() {
 		calStatus := (baseStat*2+individualVal+effortVal/4)*level/100 + 5
 		return calStatus
 	}
+
 	//ポケモンのデータを取得するhandler
 	GetPokeDataHandler := func(w http.ResponseWriter, req *http.Request) {
 		var err error
@@ -56,22 +59,23 @@ func main() {
 		if pathLevel != "" && pathEffortVal != "" && pathIndividualVal != "" {
 			level, err = strconv.Atoi(pathLevel)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			effortVal, err = strconv.Atoi(pathEffortVal)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			indvidualVal, err = strconv.Atoi(pathIndividualVal)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 		}
-		vars := mux.Vars(req)
+
 		//パスパラメータを元にポケモンのデータを取得
+		vars := mux.Vars(req)
 		res, err := http.Get("https://pokeapi.co/api/v2/pokemon/" + vars["id"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -110,7 +114,9 @@ func main() {
 		}
 
 		var PokeData PokeData
+
 		//レスポンスを構造体に変換
+		var PokeData PokeData
 		if err := json.NewDecoder(res.Body).Decode(&PokeData); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
