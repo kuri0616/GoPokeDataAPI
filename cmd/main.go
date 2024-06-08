@@ -13,6 +13,7 @@ import (
 func main() {
 	//ポケモンのデータを格納する構造体
 	type PokeData struct {
+		Name   string `json:"name"`
 		EncImg string `json:"img"`
 		Stats  []struct {
 			BaseStat int `json:"base_stat"`
@@ -23,10 +24,16 @@ func main() {
 		} `json:"stats"`
 	}
 
-	//最大HP
-	//(種族値×2+個体値+努力値÷4)×レベル÷100+レベル+10
-	//こうげき・ぼうぎょ・とくこう・とくぼう・すばやさ
-	//{(種族値×2+個体値+努力値÷4)×レベル÷100+5}×せいかく補正
+	//ポケモンの名前を格納する構造体
+	type FindName struct {
+		Names []struct {
+			Language struct {
+				Name string `json:"name"`
+			} `json:"language"`
+			Name string `json:"name"`
+		}
+	}
+
 	CalculateHP := func(baseStat int, individualVal int, effortVal int, level int) int {
 		calStatus := (baseStat*2+individualVal+effortVal/4)*level/100 + level + 10
 		return calStatus
@@ -88,12 +95,35 @@ func main() {
 
 		pokeEncData := base64.StdEncoding.EncodeToString(pokeImg)
 
+		var FindName FindName
+		//ポケモンの名前を取得
+		resName, err := http.Get("https://pokeapi.co/api/v2/pokemon-species/" + vars["id"])
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer resName.Body.Close()
+
+		if err := json.NewDecoder(resName.Body).Decode(&FindName); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		var PokeData PokeData
 		//レスポンスを構造体に変換
 		if err := json.NewDecoder(res.Body).Decode(&PokeData); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		//日本語の名前を取得
+		for _, name := range FindName.Names {
+			if name.Language.Name == "ja" {
+				PokeData.Name = name.Name
+				break
+			}
+		}
+
 		PokeData.EncImg = pokeEncData
 
 		// レベル、努力値、個体値を元にステータスを計算
