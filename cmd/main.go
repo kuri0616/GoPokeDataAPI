@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/rikuya98/go-poke-data-api/models"
 	"io"
 	"log"
 	"net/http"
@@ -11,28 +12,6 @@ import (
 )
 
 func main() {
-	//ポケモンのデータを格納する構造体
-	type PokeData struct {
-		Name   string `json:"name"`
-		EncImg string `json:"img"`
-		Stats  []struct {
-			BaseStat int `json:"base_stat"`
-			CalStat  int `json:"cal_stat"`
-			Stat     struct {
-				Name string `json:"name"`
-			} `json:"stat"`
-		} `json:"stats"`
-	}
-
-	//ポケモンの名前を格納する構造体
-	type FindName struct {
-		Names []struct {
-			Language struct {
-				Name string `json:"name"`
-			} `json:"language"`
-			Name string `json:"name"`
-		}
-	}
 
 	//ステータスを計算する関数
 	CalculateHP := func(baseStat int, individualVal int, effortVal int, level int) int {
@@ -98,7 +77,7 @@ func main() {
 
 		pokeEncData := base64.StdEncoding.EncodeToString(pokeImg)
 
-		var FindName FindName
+		var FindName models.FindName
 		//ポケモンの名前を取得
 		resName, err := http.Get("https://pokeapi.co/api/v2/pokemon-species/" + vars["id"])
 		if err != nil {
@@ -113,7 +92,7 @@ func main() {
 		}
 
 		//レスポンスを構造体に変換
-		var PokeData PokeData
+		var PokeData models.PokeData
 		if err := json.NewDecoder(res.Body).Decode(&PokeData); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
