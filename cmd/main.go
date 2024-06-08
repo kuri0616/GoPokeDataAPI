@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -11,7 +13,8 @@ import (
 func main() {
 	//ポケモンのデータを格納する構造体
 	type PokeData struct {
-		Stats []struct {
+		EncImg string `json:"img"`
+		Stats  []struct {
 			BaseStat int `json:"base_stat"`
 			CalStat  int `json:"cal_stat"`
 			Stat     struct {
@@ -69,12 +72,30 @@ func main() {
 		}
 		defer res.Body.Close()
 
+		//ポケモンの画像を取得
+		resImg, err := http.Get("https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/" + vars["id"] + ".png")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer resImg.Body.Close()
+
+		pokeImg, err := io.ReadAll(resImg.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		pokeEncData := base64.StdEncoding.EncodeToString(pokeImg)
+
 		var PokeData PokeData
 		//レスポンスを構造体に変換
 		if err := json.NewDecoder(res.Body).Decode(&PokeData); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		PokeData.EncImg = pokeEncData
+
 		// レベル、努力値、個体値を元にステータスを計算
 		for i, stat := range PokeData.Stats {
 			switch stat.Stat.Name {
@@ -94,7 +115,6 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/pokemon/{id:[0-9]+}", GetPokeDataHandler).Methods(http.MethodGet)
 	r.HandleFunc("/pokemon/{id:[0-9]+}", GetPokeDataHandler).Methods(http.MethodGet)
 	http.Handle("/", r)
 	log.Fatal(http.ListenAndServe(":8080", nil))
