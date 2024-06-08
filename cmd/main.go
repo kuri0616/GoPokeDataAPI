@@ -24,7 +24,6 @@ func main() {
 		} `json:"stats"`
 	}
 
-
 	//ポケモンの名前を格納する構造体
 	type FindName struct {
 		Names []struct {
@@ -112,8 +111,6 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		var PokeData PokeData
 
 		//レスポンスを構造体に変換
 		var PokeData PokeData
