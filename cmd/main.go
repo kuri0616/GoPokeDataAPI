@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-
 	r := mux.NewRouter()
 	r.HandleFunc("/pokemon/{id:[0-9]+}", handlers.GetPokeDataHandler).Methods(http.MethodGet)
 	http.Handle("/", r)
