@@ -1,7 +1,6 @@
 package models
 
-// ポケモンのデータを格納する構造体
-
+// PokeData ポケモンのデータを格納する構造体
 type PokeData struct {
 	Name   string `json:"name"`
 	EncImg string `json:"img"`
@@ -14,8 +13,7 @@ type PokeData struct {
 	} `json:"stats"`
 }
 
-// ポケモンの日本語名を取得するための構造体
-
+// FindName ポケモンの日本語名を取得するための構造体
 type FindName struct {
 	Names []struct {
 		Language struct {
@@ -23,4 +21,11 @@ type FindName struct {
 		} `json:"language"`
 		Name string `json:"name"`
 	}
+}
+
+// PokeParams ポケモンのステータスを計算するためのパラメータ
+type PokeParams struct {
+	IndVal    int
+	EffortVal int
+	Level     int
 }

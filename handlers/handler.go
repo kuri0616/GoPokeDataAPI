@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/gorilla/mux"
 	"github.com/rikuya98/go-poke-data-api/models"
 	"github.com/rikuya98/go-poke-data-api/services"
@@ -11,49 +10,42 @@ import (
 	"strconv"
 )
 
-var ErrNoQuery = errors.New("no query parameter")
+func GetQueryParams(que url.Values, keys []string) (models.PokeParams, error) {
+	var pokeQueParams models.PokeParams
+	var err error
 
-// ステータスを計算する関数
-
-func CalHP(baseStat int, individualVal int, effortVal int, level int) int {
-	calStatus := (baseStat*2+individualVal+effortVal/4)*level/100 + level + 10
-	return calStatus
-}
-func CalOtherStat(baseStat int, individualVal int, effortVal int, level int) int {
-	calStatus := (baseStat*2+individualVal+effortVal/4)*level/100 + 5
-	return calStatus
-}
-
-func GetQueryIntParams(que url.Values, key string) (int, error) {
-	val := que.Get(key)
-	if val == "" {
-		return 0, ErrNoQuery
+	for _, key := range keys {
+		val := que.Get(key)
+		if val == "" {
+			return models.PokeParams{}, ErrNoQuery
+		}
+		switch key {
+		case "lv":
+			pokeQueParams.Level, err = strconv.Atoi(val)
+		case "ef":
+			pokeQueParams.EffortVal, err = strconv.Atoi(val)
+		case "in":
+			pokeQueParams.IndVal, err = strconv.Atoi(val)
+		default:
+			return models.PokeParams{}, ErrInvalidKey
+		}
+		if err != nil {
+			return models.PokeParams{}, err
+		}
 	}
-	return strconv.Atoi(val)
+	return pokeQueParams, nil
 }
 
-//ポケモンのデータを取得するhandler
-
+// GetPokeDataHandler ポケモンのデータを取得する。
 func GetPokeDataHandler(w http.ResponseWriter, req *http.Request) {
 	var err error
-	var level, effortVal, indvidualVal int
+	var pokeParams models.PokeParams
+	var pokeData models.PokeData
 
 	//クエリパラメータからレベル、努力値、個体値を取得
 	query := req.URL.Query()
-
-	level, err = GetQueryIntParams(query, "lv")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	effortVal, err = GetQueryIntParams(query, "ef")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	indvidualVal, err = GetQueryIntParams(query, "in")
+	keys := []string{"lv", "ef", "in"}
+	pokeParams, err = GetQueryParams(query, keys)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -62,61 +54,33 @@ func GetPokeDataHandler(w http.ResponseWriter, req *http.Request) {
 	//パスパラメータを元にポケモンのデータを取得
 	vars := mux.Vars(req)
 	id := vars["id"]
-	res, err := http.Get("https://pokeapi.co/api/v2/pokemon/" + id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer res.Body.Close()
-
-	var FindName models.FindName
-	//ポケモンの名前を取得
-	resName, err := http.Get("https://pokeapi.co/api/v2/pokemon-species/" + id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer resName.Body.Close()
-
-	if err := json.NewDecoder(resName.Body).Decode(&FindName); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	//ポケモンの画像を取得
-
 	pokeEncData, err := services.GetPokeImageService(id)
-
-	//レスポンスを構造体に変換
-	var PokeData models.PokeData
-	if err := json.NewDecoder(res.Body).Decode(&PokeData); err != nil {
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	//日本語の名前を取得
-	for _, name := range FindName.Names {
-		if name.Language.Name == "ja" {
-			PokeData.Name = name.Name
-			break
-		}
+	pokeName, err := services.GetPokeNameService(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	PokeData.EncImg = pokeEncData
-
+	pokeData, err = services.GetPokeDataService(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	pokeData.EncImg = pokeEncData
+	pokeData.Name = pokeName
 	// レベル、努力値、個体値を元にステータスを計算
-	for i, stat := range PokeData.Stats {
-		switch stat.Stat.Name {
-		case "hp":
-			PokeData.Stats[i].CalStat = CalHP(stat.BaseStat, indvidualVal, effortVal, level)
-		default:
-			PokeData.Stats[i].CalStat = CalOtherStat(stat.BaseStat, indvidualVal, effortVal, level)
-		}
-	}
+	services.CalPokeStat(&pokeData, pokeParams)
 
 	//レスポンスをjson形式で返す
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(PokeData); err != nil {
+	if err := json.NewEncoder(w).Encode(pokeData); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
