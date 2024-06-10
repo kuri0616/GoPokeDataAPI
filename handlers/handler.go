@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 )
 
 func GetQueryParams(que url.Values, keys []string) (models.PokeParams, error) {
@@ -39,9 +40,13 @@ func GetQueryParams(que url.Values, keys []string) (models.PokeParams, error) {
 // GetPokeDataHandler ポケモンのデータを取得する。
 func GetPokeDataHandler(w http.ResponseWriter, req *http.Request) {
 	var err error
+	var getImgErr error
+	var getDataErr error
+	var getNameErr error
+
 	var pokeParams models.PokeParams
 	var pokeData models.PokeData
-
+	var wg sync.WaitGroup
 	//クエリパラメータからレベル、努力値、個体値を取得
 	query := req.URL.Query()
 	keys := []string{"lv", "ef", "in"}
@@ -55,24 +60,43 @@ func GetPokeDataHandler(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	id := vars["id"]
 
+	wg.Add(3)
+
 	//ポケモンの画像を取得
-	pokeEncData, err := services.GetPokeImageService(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var pokeEncData string
+	go func() {
+		defer wg.Done()
+		pokeEncData, getImgErr = services.GetPokeImageService(id)
+	}()
+
+	var pokeName string
+	go func() {
+		defer wg.Done()
+		pokeName, getNameErr = services.GetPokeNameService(id)
+	}()
+
+	go func() {
+		defer wg.Done()
+		pokeData, getDataErr = services.GetPokeDataService(id)
+	}()
+
+	wg.Wait()
+
+	if getNameErr != nil {
+		http.Error(w, getNameErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	pokeName, err := services.GetPokeNameService(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if getImgErr != nil {
+		http.Error(w, getImgErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	pokeData, err = services.GetPokeDataService(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if getDataErr != nil {
+		http.Error(w, getDataErr.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	pokeData.EncImg = pokeEncData
 	pokeData.Name = pokeName
 	// レベル、努力値、個体値を元にステータスを計算
